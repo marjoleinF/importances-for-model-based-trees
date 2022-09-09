@@ -46,11 +46,11 @@ varimp_mobtree <- function(object) {
 
 Illustrate use with a `raschtree`:
 
-```{r}
+```{r, message = FALSE, warning = FALSE, fig.width=6, fig.height=4}
 library("psychotree")
 data("DIFSim", package = "psychotree")
 rt <- raschtree(resp ~ age + gender + motivation, data = DIFSim)
-plot(rt)
+plot(rt, gp = gpar(cex = .7))
 ## print logLik values of each node
 for (i in 1:length(rt)) {
   print(paste("node", i, logLik(rt[[i]]$node$info$object)))
@@ -60,12 +60,12 @@ varimp_mobtree(rt)
 
 Illustrate use with a `glmtree`:
 
-```{r}
+```{r,  message = FALSE, warning = FALSE, fig.width=6, fig.height=4}
 data("PimaIndiansDiabetes", package = "mlbench")
 gt <- glmtree(diabetes ~ glucose | pregnant + pressure + triceps + insulin + 
                 mass + pedigree + age, data = PimaIndiansDiabetes, 
               family = binomial)
-plot(gt)
+plot(gt, gp = gpar(cex = .7))
 ## print logLik values of each node
 for (i in 1:length(gt)) {
   print(paste("node", i, logLik(gt[[i]]$node$info$object)))
@@ -78,7 +78,7 @@ varimp_mobtree(gt)
 
 According to `?semtree::varimp`: The value of the -2LL of the leaf nodes is compared to baseline overall model. Not sure how one gets an importance for a variable in this way. Let's fit a single-tree semforest, plot the resulting tree and compute importances:
 
-```{r,warning=FALSE,message=FALSE}
+```{r, warning=FALSE,message=FALSE, fig.width=6, fig.height=4}
 library("semtree")
 library("psychTools")
 data(affect)
@@ -105,7 +105,7 @@ forest <- semforest(model=model,
                     control = control,
                     covariates = c("Study","Film", "state1", "PA2","NA2","TA2"))
 vim <- semtree::varimp(forest)
-plot(forest$forest[[1]])
+plot(forest$forest[[1]], cex = .7)
 print(vim, sort.values=TRUE)
 ```
 
