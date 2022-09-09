@@ -1,0 +1,117 @@
+---
+title: "Variable importances for model-based trees"
+author: "Marjolein Fokkema"
+date: "9-9-2022"
+output: pdf_document
+---
+
+In general, I think two possible approaches: 
+
+1) Importances based on improvement in likelihood (i.e., an impurity-based measure). 
+
+2) Effect-size driven importances (based on coefficients in terminal nodes; more similar to PRE importances).
+
+First approach is easiest to implement. Second approach seems more interesting.
+
+
+# Importances based on improvement in likelihood for model-based trees
+
+```{r, message = FALSE, warning = FALSE}
+## 
+## Function that takes any model-based tree as input, and returns the variable
+## importances for all partitioning variables specified.
+## 
+## The function checks for every split (inner) node that is not the root: 
+## How much the split improves the logLik
+## Then adds this reduction to the varimp for that variable
+##
+varimp_mobtree <- function(object) {
+  imps <- numeric(ncol(object[[1]]$node$info$test))
+  names(imps) <- colnames(object[[1]]$node$info$test)
+  for (i in 1:length(object)) {
+    if (!is.null(object[[i]]$node$split)) {
+      ## Sum logLik of the two daughter nodes, substract logLik of the mother node
+      LL_redux <-  (logLik(object[[i]]$node$kids[[1]]$info$object) + 
+                      logLik(object[[i]]$node$kids[[2]]$info$object)) - 
+        logLik(object[[i]]$node$info$object)
+      ## Add logLik reduction to current varimps
+      which_var <- 
+        rownames(attr(terms(object), "factors"))[object[[i]]$node$split$varid]
+      imps[which_var] <- imps[which_var] + LL_redux
+    }
+  }
+  return(imps)
+}
+```
+
+Illustrate use with a `raschtree`:
+
+```{r}
+library("psychotree")
+data("DIFSim", package = "psychotree")
+rt <- raschtree(resp ~ age + gender + motivation, data = DIFSim)
+plot(rt)
+## print logLik values of each node
+for (i in 1:length(rt)) {
+  print(paste("node", i, logLik(rt[[i]]$node$info$object)))
+}
+varimp_mobtree(rt)
+```
+
+Illustrate use with a `glmtree`:
+
+```{r}
+data("PimaIndiansDiabetes", package = "mlbench")
+gt <- glmtree(diabetes ~ glucose | pregnant + pressure + triceps + insulin + 
+                mass + pedigree + age, data = PimaIndiansDiabetes, 
+              family = binomial)
+plot(gt)
+## print logLik values of each node
+for (i in 1:length(gt)) {
+  print(paste("node", i, logLik(gt[[i]]$node$info$object)))
+}
+varimp_mobtree(gt)
+```
+
+
+# How does semforest do this?
+
+According to `?semtree::varimp`: The value of the -2LL of the leaf nodes is compared to baseline overall model. Not sure how one gets an importance for a variable in this way. Let's fit a single-tree semforest, plot the resulting tree and compute importances:
+
+```{r,warning=FALSE,message=FALSE}
+library("semtree")
+library("psychTools")
+data(affect)
+affect$Film <- as.factor(affect$Film)
+affect$lie <- as.ordered(affect$lie)
+affect$imp <- as.ordered(affect$imp)
+
+library("OpenMx")
+manifests <- c("state2")
+latents <- c()
+model <- mxModel("Univariate Normal Model", 
+                 type="RAM",
+                 manifestVars = manifests,
+                 latentVars = latents,
+                 mxPath(from="one",to=manifests, free=c(TRUE), 
+                        value=c(50.0) , arrows=1, label=c("mu") ),
+                 mxPath(from=manifests,to=manifests, free=c(TRUE), 
+                        value=c(100.0) , arrows=2, label=c("sigma2") ),
+                 mxData(affect, type = "raw")
+)
+control <- semforest.control(num.trees = 1)
+forest <- semforest(model=model,
+                    data = affect, 
+                    control = control,
+                    covariates = c("Study","Film", "state1", "PA2","NA2","TA2"))
+vim <- semtree::varimp(forest)
+plot(forest$forest[[1]])
+print(vim, sort.values=TRUE)
+```
+
+
+# How does mobforest do this?
+
+mobForest returns OOB permutation importances (which I guess assumes a supervised learning problem). It has a function `varimp.output`, which according to the documentation returns: "Variable importance matrix containing the decrease in predictive accuracy after permuting the variables across all trees."
+
+"Values of variable ’m’ in the oob cases are randomly permuted and R2 obtained through variable-m-permuted oob data is subtracted from R2 obtained on untouched oob data. The average of this number over all the trees in the forest is the raw importance score for variable m."
