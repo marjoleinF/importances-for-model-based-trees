@@ -5,13 +5,18 @@ date: "9-9-2022"
 output: pdf_document
 ---
 
-In general, I think two possible approaches: 
+In general, I think three approaches are possible to compute importances: 
 
-1) Importances based on improvement in likelihood (i.e., an impurity-based measure). 
+1) Importances based on improvement in likelihood (i.e., an impurity-based measure). This approach is implemented for semforests in the semtree package, and easy to do for all types of model-based trees, see below.
 
-2) Effect-size driven importances (based on coefficients in terminal nodes; more similar to PRE importances).
+2) Importances based on predictive accuracy (i.e., permutation-based importances). This is relatively easy to compute for GLM trees / supervised trees, because can simply compute the loss before and after permutation of the predictor variable of interest, and can also use OOB observations for this. This approach is implemented in the mobForest package. 
 
-First approach is easiest to implement. Second approach seems more interesting.
+For non-supervised trees, like raschtree and also semtrees, I believe this is more tricky, but not impossible. We simply have to choose what we take as the loss, and determinse how to compute it for test/OOB observations. For example, for raschtrees, we could compute a squared error loss: Take the observed pattern of item response for person $i$, and use those to compute the model-based probabilities of having each of the items correct for person $i$. Take the squared difference, and sum over persons and items. Next, permute the values of the predictor variable of interest, recompute model-based probabilities of having each of the items correct, take squared difference and sum over persons and items. The difference between the two sums thus obtained quantifies the importance of the predictor variable of interest; it quantifies how much the predictor variable of interest contributes to explaining the item responses. 
+
+Package psychotree has a dependence on package mirt. Using function `mirt::fscores`, theta's can be computed from a fitted mirt model by specifying the `response.pattern` argument. Next, using function `expected.item` (and extracting item objects from the fitted model using function `extract.item`), expected item responses can be computed for every item, given the computed theta values. For the rasch model, `fscores` returns probabilities of answering correctly.
+
+3) Importances based on estimated coefficients or effect-sizes in the terminal nodess (i.e., most similar to PRE importances).
+
 
 
 # Importances based on improvement in likelihood for model-based trees
